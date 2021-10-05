@@ -1,4 +1,4 @@
-from imutils.video import VideoStream
+from imutils.video import VideoStream, FPS
 from centroidtracker import CentroidTracker
 import numpy as np
 import argparse
@@ -16,14 +16,28 @@ ct = CentroidTracker()
 print("[INFO] loading model....")
 net = cv2.dnn.readNetFromCaffe(prototxt, model)
 
-print("[INFO] starting video streams...")
-vs = VideoStream(src=0).start()
+parser = argparse.ArgumentParser()
+parser.add_argument('--source', required=True, help='video or camera')
+args = parser.parse_args()
+
+if args.source == '0':
+    print("[INFO] starting video streams...")
+    stream = VideoStream(src=0).start()
+else:
+    print("[INFO] starting video Capture...")
+    stream = cv2.VideoCapture(args.source)
+    
+fps = FPS().start()
 time.sleep(2.0)
 
 while True:
     try:
-        frame = vs.read()
-        frame = imutils.resize(frame, width=400)
+        if args.source == '0':
+            frame = stream.read()
+            frame = imutils.resize(frame, width=600)
+        else:
+            (grabbed, frame) = stream.read()
+            frame = imutils.resize(frame, width=600)
         
         if W is None or H is None:
             (H, W) = frame.shape[:2]
@@ -33,6 +47,7 @@ while True:
         detections = net.forward()
         rects = []
         
+        # detections = [[]]
         for i in range(0, detections.shape[2]):
             if detections[0, 0, i, 2] > confidence:
                 box = detections[0, 0, i, 3:7] * np.array([W, H, W, H])
@@ -49,13 +64,19 @@ while True:
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
             cv2.circle(frame, (centroid[0], centroid[1]), 4, (0,255,0), -1)
             
-        cv2.imshow("frame", frame)
-        key = cv2.waitKey(1) & 0xFF
-        
-        if key == ord('q'):
-            break
     except:
-        print('No Objects')
+        # print('No Objects')
+        pass
+        
+    cv2.imshow("frame", frame)
+    key = cv2.waitKey(1) & 0xFF
     
+    if key == ord('q'):
+        break
+    fps.update()
+    fps.stop()
+    print(fps.fps())
+    
+
 cv2.destropyAllWindows()
-vs.stop()   
+stream.stop()   
